@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # 显式赋予 GitHub 仓库打包发布写入权限
+      packages: write # 明确声明容器镜像仓库的写权限
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -18,7 +18,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: lumenatte
+          username: ${{ github.actor }} # 自动动态获取你的用户名
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 自动编译并推送 Docker 镜像
@@ -27,4 +27,5 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/lumenatte/sap-keepalive:latest # 严格推送到个人账户名下
+          # 关键点：将用户名强制转为纯小写，彻底绕过组织包权限拦截
+          tags: ghcr.io/${{ github.repository_owner }}/sap-keepalive:latest
