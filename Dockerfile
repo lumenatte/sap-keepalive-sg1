@@ -11,10 +11,11 @@ RUN apt-get update && apt-get install -y \
     openssh-server \
     && rm -rf /var/lib/apt/lists/*
 
-# 配置 SSH：允许 root 登录并设置固定密码 lu352400
-RUN mkdir /var/run/sshd && \
-    echo 'root:lu352400' | chpasswd && \
-    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+# 配置 SSH：允许 root 登录并设置固定密码 1u352400
+RUN mkdir -p /var/run/sshd
+RUN echo 'root:1u352400' | chpasswd
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+RUN sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 
 # 安装 Tailscale
 RUN curl -fsSL https://tailscale.com/install.sh | sh
