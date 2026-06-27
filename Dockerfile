@@ -1,9 +1,9 @@
-FROM ubuntu:latest
+FROM debian:11-slim
 
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 安装基础工具、SSH 和 用于安装 Tailscale 的 curl
+# 1. 更新源并安装 Debian 基础依赖工具、SSH 服务及 curl
 RUN apt-get update && apt-get install -y \
     wget \
     sudo \
@@ -11,16 +11,16 @@ RUN apt-get update && apt-get install -y \
     openssh-server \
     && rm -rf /var/lib/apt/lists/*
 
-# 配置 SSH：允许 root 登录并设置固定密码 1u352400
+# 2. 精准配置 SSH 服务：创建运行目录、允许 root 登录、设置固定密码 1u352400
 RUN mkdir -p /var/run/sshd
 RUN echo 'root:1u352400' | chpasswd
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 RUN sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 
-# 安装 Tailscale
+# 3. 下载并安装 Tailscale 内网穿透
 RUN curl -fsSL https://tailscale.com/install.sh | sh
 
-# 复制待会儿要创建的启动脚本
+# 4. 复制并授权启动脚本
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
