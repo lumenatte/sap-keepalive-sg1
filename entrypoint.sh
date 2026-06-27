@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# 1. 后台启动 SSH 服务
-/usr/sbin/sshd -D &
+# 1. 在后台拉起 SSH 服务（指定 2222 端口，绕过 1024 特权端口限制）
+/usr/sbin/sshd -p 2222 &
 
 # 2. 后台启动 Tailscale 核心守护进程
 tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --outbound-http-proxy-listen=localhost:1055 &
