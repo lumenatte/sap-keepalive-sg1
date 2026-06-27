@@ -7,7 +7,7 @@ tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --outbound-
 sleep 2
 
 # 3. 🔥 自动登录并加入网络，同时开启 --ssh 托管服务！
-tailscale up --authkey=tskey-auth-kygKur9rqq11CNTRL-VVrQK84W2N8bCyn6yb4qN8D31oskTH94 --accept-routes=true --ssh=true &
+tailscale up --authkey=tskey-auth-k4NxQajnBn11CNTRL-reF78AJCe6NiLxd48rgf7NnJAVaExqGrD --accept-routes=true --ssh=true &
 
 # 4. 保持容器前台挂起
 tail -f /dev/null
