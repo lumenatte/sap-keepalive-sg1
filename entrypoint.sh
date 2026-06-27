@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# 1. 在后台拉起 SSH 服务（指定 2222 端口，绕过 1024 特权端口限制）
-/usr/sbin/sshd -p 2222 &
-
-# 2. 后台启动 Tailscale 核心守护进程
+# 1. 在后台拉起 Tailscale 核心守护进程（使用用户态网络，并开启 1055 代理端口）
 tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --outbound-http-proxy-listen=localhost:1055 &
 
-# 3. 让容器自动登录并加入你的 Tailscale 网络（请把下面换成你网页上生成的真实 key）
-tailscale up --authkey=tskey-auth-kygKur9rqq11CNTRL-VVrQK84W2N8bCyn6yb4qN8D31oskTH94 --accept-routes=true &
+# 2. 等待 2 秒让守护进程稳固运行
+sleep 2
 
-# 4. 保持容器在后台持续运行不退出
+# 3. 🔥 自动登录并加入网络，同时开启 --ssh 托管服务！
+tailscale up --authkey=tskey-auth-kygKur9rqq11CNTRL-VVrQK84W2N8bCyn6yb4qN8D31oskTH94 --accept-routes=true --ssh=true &
+
+# 4. 保持容器前台挂起
 tail -f /dev/null
