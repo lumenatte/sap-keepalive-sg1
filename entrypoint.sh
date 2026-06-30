@@ -40,11 +40,8 @@ KOMARI_PORT="25774"
 if [ -n "${KOMARI_TOKEN}" ]; then
     echo "Starting Komari Agent v2 via Tailscale tunnel to RN..." >> /tmp/komari.log
     
-    # 🔥 v2 架构一键直接运行的正确命令格式：
-    nohup /usr/local/bin/komari-agent service run --server "${RN_INNER_IP}:${KOMARI_PORT}" --secret "${KOMARI_TOKEN}" --tls >> /tmp/komari.log 2>&1 &
-    
-    # 💡 提示：如果你的 RackNerd 服务端没开 gRPC 的 TLS（证书加密），请把上面的 --tls 删掉，改成下面这行：
-    # nohup /usr/local/bin/komari-agent service run --server "${RN_INNER_IP}:${KOMARI_PORT}" --secret "${KOMARI_TOKEN}" >> /tmp/komari.log 2>&1 &
+    # 🔥 修正命令：去掉未定义的 action run，直接执行或加上非 TLS 标签
+    nohup /usr/local/bin/komari-agent --server "${RN_INNER_IP}:${KOMARI_PORT}" --secret "${KOMARI_TOKEN}" --tls=false >> /tmp/komari.log 2>&1 &
 else
     echo "Warning: KOMARI_TOKEN is not set." >> /tmp/komari.log
 fi
