@@ -15,18 +15,25 @@ jobs:
     timeout-minutes: 8
 
     steps:
-      - name: Force stop app first
-        uses: docker://cloudfoundry/cf-cli:latest
-        with:
-          args: run cf api ${{ secrets.CF_API }} && cf login -u ${{ secrets.CF_USERNAME }} -p ${{ secrets.CF_PASSWORD }} -o ${{ secrets.CF_ORG }} -s ${{ secrets.CF_SPACE }} -a && cf stop ${{ secrets.CF_APP }}
+      - name: Force stop
+        run: |
+          curl -s "https://raw.githubusercontent.com/cloudfoundry/go-cf-cli/master/assets/cf_linux_amd64.deb" -o /tmp/cf.deb 2>/dev/null || \
+          curl -sL "https://github.com/cloudfoundry/cli/releases/latest/download/cf_11.5.0_linux_amd64.deb" -o /tmp/cf.deb 2>/dev/null
+          
+          if [ -f /tmp/cf.deb ]; then
+            sudo dpkg -i /tmp/cf.deb 2>/dev/null
+          fi
+          
+          if ! command -v cf &> /dev/null; then
+            echo "Failed to install cf, trying alternate method"
+            curl -sL "https://github.com/cloudfoundry/cli/releases/latest/download/cf_cli_release_linux.tgz" | tar xz
+            sudo mv cf /usr/local/bin/
+          fi
 
-      - name: KeepAlive via container
-        uses: docker://ghcr.io/uncleluogithub/cf-keepalive:latest
-        env:
-          CF_USERNAME: ${{ secrets.CF_USERNAME }}
-          CF_PASSWORD: ${{ secrets.CF_PASSWORD }}
-          CF_API: ${{ secrets.CF_API }}
-          CF_ORG: ${{ secrets.CF_ORG }}
-          CF_SPACE: ${{ secrets.CF_SPACE }}
-          CF_APP: ${{ secrets.CF_APP }}
-          CF_SET_PROCESS_HC: "true"
+      - name: Login and restart
+        run: |
+          cf api ${{ secrets.CF_API }}
+          cf login -u ${{ secrets.CF_USERNAME }} -p ${{ secrets.CF_PASSWORD }} -o ${{ secrets.CF_ORG }} -s ${{ secrets.CF_SPACE }} -a
+          cf stop ${{ secrets.CF_APP }} || true
+          cf start ${{ secrets.CF_APP }}
+          cf app ${{ secrets.CF_APP }}
