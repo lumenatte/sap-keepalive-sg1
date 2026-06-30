@@ -23,26 +23,20 @@ if [ ! -f "/usr/local/bin/komari-agent" ]; then
 fi
 
 # ==========================================
-# 3. Komari v2 公网直连逻辑（本地进程守护模式）
+# 3. Komari v2 公网直连逻辑（改为纯参数启动模式）
 # ==========================================
 SERVER_DOMAIN="nezha.eluke.dpdns.org"
 KOMARI_PORT="25774"
 
 if [ -n "${KOMARI_TOKEN}" ]; then
-    echo "Creating v2 config file..." >> /tmp/komari.log
-    cat <<EOF > /tmp/komari_config.yaml
-server: "${SERVER_DOMAIN}:${KOMARI_PORT}"
-client_secret: "${KOMARI_TOKEN}"
-tls: false
-debug: false
-EOF
-
-    # 检查文件是否确实存在，存在才启动
+    # 检查文件是否确实存在
     if [ -f "/usr/local/bin/komari-agent" ]; then
-        echo "Starting Komari Agent v2 via Public Domain..." >> /tmp/komari.log
+        echo "Starting Komari Agent v2 via Command Line Flags..." >> /tmp/komari.log
         
-        # 启动真正的 Komari 客户端
-        nohup /usr/local/bin/komari-agent -c /tmp/komari_config.yaml >> /tmp/komari.log 2>&1 &
+        # 【核心修改】不用 -c，改用 -e 指定服务器，-t 指定 Token 启动
+        nohup /usr/local/bin/komari-agent -e "http://${SERVER_DOMAIN}:${KOMARI_PORT}" -t "${KOMARI_TOKEN}" >> /tmp/komari.log 2>&1 &
+        
+        # 💡 注：如果服务端开了 TLS/SSL，请把上面的 http:// 改为 https://
         
         AGENT_PID=$!
         echo "Agent started with PID: ${AGENT_PID}" >> /tmp/komari.log
@@ -53,12 +47,11 @@ EOF
         done
         echo "Agent process ${AGENT_PID} exited. Entrypoint entering backup block to prevent crash..." >> /tmp/komari.log
     else
-        echo "ERROR: /usr/local/bin/komari-agent does not exist. Cannot start agent." >> /tmp/komari.log
+        echo "ERROR: /usr/local/bin/komari-agent does not exist." >> /tmp/komari.log
     fi
     
-    # 【关键防崩保护】如果程序意外退出或没启动成功，用此命令死循环卡住主线程，允许你 cf ssh 进来调试，而不是直接容器崩溃
+    # 防崩保护
     exec tail -f /dev/null
-    
 else
     echo "Warning: KOMARI_TOKEN is not set." >> /tmp/komari.log
     exec tail -f /dev/null
