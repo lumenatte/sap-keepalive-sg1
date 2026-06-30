@@ -4,7 +4,26 @@
 echo "=== Container Started at $(date) ===" > /tmp/komari.log
 
 # ==========================================
-# 2. 启动 Tailscale 核心服务
+# 2. 纯净版：自动检测并下载最新的 komari-agent
+# ==========================================
+if [ ! -f "/usr/local/bin/komari-agent" ]; then
+    echo "komari-agent not found, fetching the latest release..." >> /tmp/komari.log
+    
+    # 直接从官方发布源下载纯净的 Linux AMD64 架构二进制文件
+    curl -L "https://github.com/nezhahq/agent/releases/latest/download/nezha-agent_linux_amd64.zip" -o /tmp/komari.zip
+    
+    # 解压并精准命名为 komari-agent，不留任何痕迹
+    unzip -q /tmp/komari.zip -d /tmp/komari_unpack/
+    mv /tmp/komari_unpack/*agent* /usr/local/bin/komari-agent
+    chmod +x /usr/local/bin/komari-agent
+    
+    # 清理现场临时文件
+    rm -rf /tmp/komari.zip /tmp/komari_unpack/
+    echo "komari-agent deployment completed." >> /tmp/komari.log
+fi
+
+# ==========================================
+# 3. 启动 Tailscale 核心服务
 # ==========================================
 tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --outbound-http-proxy-listen=localhost:1055 &
 sleep 2
@@ -13,19 +32,17 @@ tailscale up --authkey="${TAILSCALE_AUTHKEY}" --accept-routes=true --ssh=true --
 sleep 2
 
 # ==========================================
-# 3. 纯净版 Komari 连接逻辑
+# 4. 纯净版 Komari 连接逻辑
 # ==========================================
 RN_INNER_IP="100.91.38.95"
 KOMARI_PORT="25774"
 
 if [ -n "${KOMARI_TOKEN}" ]; then
     echo "Starting Komari Agent via Tailscale tunnel to RN..." >> /tmp/komari.log
-    
-    # 直接在后台拉起系统中的 komari-agent，并将日志追加输出
-    nohup komari-agent -e "${RN_INNER_IP}:${KOMARI_PORT}" -t "${KOMARI_TOKEN}" --protocol-version 1 >> /tmp/komari.log 2>&1 &
+    nohup /usr/local/bin/komari-agent -e "${RN_INNER_IP}:${KOMARI_PORT}" -t "${KOMARI_TOKEN}" --protocol-version 1 >> /tmp/komari.log 2>&1 &
 else
     echo "Warning: KOMARI_TOKEN is not set." >> /tmp/komari.log
 fi
 
-# 保持前台运行，方便你随时 cat /tmp/komari.log 查看
+# 保持前台运行
 tail -f /tmp/komari.log
