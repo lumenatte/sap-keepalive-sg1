@@ -17,16 +17,24 @@ if [ ! -f "/usr/local/bin/komari-agent" ]; then
 fi
 
 # ==========================================
-# 3. 启动 Tailscale 核心服务（修正参数为 --auth-key）
+# 3. 绕过 BTP 容器封锁：强行限制纯 IPv4 启动 Tailscale
 # ==========================================
-echo "Starting tailscaled..." >> /tmp/komari.log
-tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --outbound-http-proxy-listen=localhost:1055 >> /tmp/komari.log 2>&1 &
-sleep 3
+echo "Starting tailscaled in strict user-space IPv4 mode..." >> /tmp/komari.log
 
-echo "Bringing tailscale up..." >> /tmp/komari.log
-# 🔥 按照 image_717d3b.png 的确凿证据，修改为 --auth-key
-tailscale up --auth-key="${TAILSCALE_AUTHKEY}" --accept-routes=true --ssh=true --ephemeral >> /tmp/komari.log 2>&1 &
+# 环境变量强行告诉 Tailscale 别去碰没有权限的内核功能
+export TS_DEBUG_DISABLE_IPV6=1
+
+tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --outbound-http-proxy-listen=localhost:1055 >> /tmp/komari.log 2>&1 &
 sleep 5
+
+echo "Bringing tailscale up synchronously..." >> /tmp/komari.log
+
+# 拿掉末尾的 &！不要异步！不给它打架的机会，并且去掉平台可能不支持的 --ssh 参数
+# 加上 --timeout 限制，防止它无限死卡
+tailscale up --auth-key="${TAILSCALE_AUTHKEY}" --accept-routes=true --ephemeral --timeout=30s >> /tmp/komari.log 2>&1
+
+# 打印状态看看通没通
+tailscale status >> /tmp/komari.log 2>&1
 
 # ==========================================
 # 4. 纯净版 Komari v2 配置文件连接逻辑
@@ -50,6 +58,6 @@ else
 fi
 
 # ==========================================
-# 5. 终极守护：前台实时跟踪整个大日志
+# 5. 前台日志实时跟踪
 # ==========================================
 tail -f /tmp/komari.log
