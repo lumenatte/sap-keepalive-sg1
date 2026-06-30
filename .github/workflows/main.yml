@@ -15,14 +15,15 @@ jobs:
     timeout-minutes: 8
 
     steps:
+      - name: Install CF CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cloud-foundry-cli
+
       - name: Login to CF
-        uses: cloudfoundry/cli@v0
-        with:
-          api: ${{ secrets.CF_API }}
-          username: ${{ secrets.CF_USERNAME }}
-          password: ${{ secrets.CF_PASSWORD }}
-          org: ${{ secrets.CF_ORG }}
-          space: ${{ secrets.CF_SPACE }}
+        run: |
+          cf api ${{ secrets.CF_API }}
+          cf login -u ${{ secrets.CF_USERNAME }} -p ${{ secrets.CF_PASSWORD }} -o ${{ secrets.CF_ORG }} -s ${{ secrets.CF_SPACE }} -a
 
       - name: Force restart app
         run: |
