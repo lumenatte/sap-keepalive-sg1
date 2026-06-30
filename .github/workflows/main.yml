@@ -15,8 +15,10 @@ jobs:
     timeout-minutes: 8
 
     steps:
-      - name: Setup CF CLI
-        uses: vapor-ware/setup-cf-cli@v1
+      - name: Install CF CLI
+        run: |
+          curl -fsSL -o cf-cli.deb "https://packages.cloudfoundry.org/stable?release=debian64&version=11.5.0&source=github-actions"
+          sudo dpkg -i cf-cli.deb
 
       - name: Login and restart
         run: |
@@ -24,3 +26,4 @@ jobs:
           cf login -u ${{ secrets.CF_USERNAME }} -p ${{ secrets.CF_PASSWORD }} -o ${{ secrets.CF_ORG }} -s ${{ secrets.CF_SPACE }} -a
           cf stop ${{ secrets.CF_APP }} || true
           cf start ${{ secrets.CF_APP }}
+          cf app ${{ secrets.CF_APP }}
