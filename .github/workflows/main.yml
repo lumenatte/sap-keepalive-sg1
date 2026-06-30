@@ -21,12 +21,14 @@ jobs:
           echo "deb [signed-by=/usr/share/keyrings/cf-cli-archive-keyring.gpg] https://packages.cloudfoundry.org/debian stable main" | sudo tee /etc/apt/sources.list.d/cloudfoundry-cli.list
           sudo apt-get update
           sudo apt-get install -y cf8-cli
+          cf --version
 
       - name: Login and restart
         run: |
           set -e
-          cf api ${{ secrets.CF_API }}
-          cf login -u ${{ secrets.CF_USERNAME }} -p ${{ secrets.CF_PASSWORD }} -o ${{ secrets.CF_ORG }} -s ${{ secrets.CF_SPACE }} -a
-          cf stop ${{ secrets.CF_APP }} || true
-          cf start ${{ secrets.CF_APP }}
-          cf app ${{ secrets.CF_APP }}
+          cf api "${{ secrets.CF_API }}"
+          cf auth "${{ secrets.CF_USERNAME }}" "${{ secrets.CF_PASSWORD }}"
+          cf target -o "${{ secrets.CF_ORG }}" -s "${{ secrets.CF_SPACE }}"
+          cf stop "${{ secrets.CF_APP }}" || true
+          cf start "${{ secrets.CF_APP }}"
+          cf app "${{ secrets.CF_APP }}"
