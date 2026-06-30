@@ -4,20 +4,21 @@
 echo "=== Container Started at $(date) ===" > /tmp/komari.log
 
 # ==========================================
-# 2. 彻底放弃外部下载，直接检查并确认本地 Komari 客户端
+# 2. 借用官方一键部署脚本的源，动态下载真正的 Komari-Agent
 # ==========================================
-if [ -f "/usr/local/bin/komari-agent" ]; then
-    echo "Using pre-installed local Komari-Agent binary." >> /tmp/komari.log
-else
-    # 预防万一，如果在这个路径没找到，去常见的全局路径找一下
-    echo "Checking alternative paths..." >> /tmp/komari.log
-    if command -v komari-agent &> /dev/null; then
-        cp $(command -v komari-agent) /usr/local/bin/komari-agent
-        echo "Found komari-agent in system PATH." >> /tmp/komari.log
-    else
-        echo "ERROR: komari-agent not found in this image!" >> /tmp/komari.log
-        tail -f /dev/null
-    fi
+if [ ! -f "/usr/local/bin/komari-agent" ]; then
+    echo "Fetching the official Komari-Agent binary..." >> /tmp/komari.log
+    
+    # 1. 直接从官方一键部署的源里下载最新版的独立二进制压缩包
+    curl -L "https://github.com/komari-monitor/komari-agent/releases/latest/download/komari-agent_linux_amd64.tar.gz" -o /tmp/komari.tar.gz
+    
+    # 2. 解压并移到对应位置
+    tar -zxvf /tmp/komari.tar.gz -C /tmp/
+    mv /tmp/komari-agent /usr/local/bin/komari-agent
+    
+    chmod +x /usr/local/bin/komari-agent
+    rm -f /tmp/komari.tar.gz
+    echo "Official Komari-agent deployment completed." >> /tmp/komari.log
 fi
 
 # ==========================================
