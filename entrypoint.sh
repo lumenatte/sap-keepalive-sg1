@@ -32,7 +32,7 @@ tailscale up --authkey="${TAILSCALE_AUTHKEY}" --accept-routes=true --ssh=true --
 sleep 2
 
 # ==========================================
-# 4. 根据 v2.2.3 规范，通过配置文件连接逻辑
+# 4. 纯净版 Komari v2 配置文件连接逻辑
 # ==========================================
 RN_INNER_IP="100.91.38.95"
 KOMARI_PORT="25774"
@@ -40,17 +40,17 @@ KOMARI_PORT="25774"
 if [ -n "${KOMARI_TOKEN}" ]; then
     echo "Creating v2 config file..." >> /tmp/komari.log
     
-    # 动态生成 komari-agent 规范的 yaml 配置文件
+    # 按照 2.2.3 报错证据，将 secret 修改为新版强制要求的 client_secret
     cat <<EOF > /tmp/komari_config.yaml
 server: "${RN_INNER_IP}:${KOMARI_PORT}"
-secret: "${KOMARI_TOKEN}"
+client_secret: "${KOMARI_TOKEN}"
 tls: false
 debug: false
 EOF
 
     echo "Starting Komari Agent v2 with config file..." >> /tmp/komari.log
     
-    # 严格按照 GLOBAL OPTIONS 使用 -c 参数加载配置文件在后台运行
+    # 使用 -c 参数加载配置文件并在后台运行
     nohup /usr/local/bin/komari-agent -c /tmp/komari_config.yaml >> /tmp/komari.log 2>&1 &
 else
     echo "Warning: KOMARI_TOKEN is not set." >> /tmp/komari.log
