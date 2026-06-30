@@ -17,7 +17,7 @@ if [ ! -f "/usr/local/bin/komari-agent" ]; then
 fi
 
 # ==========================================
-# 3. 绕过 BTP 容器封锁：强行限制纯 IPv4 启动 Tailscale
+# 3. 绕过 BTP 容器封锁：强行限制纯 IPv4 并在登录前强制初始化
 # ==========================================
 echo "Starting tailscaled in strict user-space IPv4 mode..." >> /tmp/komari.log
 
@@ -27,11 +27,15 @@ export TS_DEBUG_DISABLE_IPV6=1
 tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --outbound-http-proxy-listen=localhost:1055 >> /tmp/komari.log 2>&1 &
 sleep 5
 
-echo "Bringing tailscale up synchronously..." >> /tmp/komari.log
+echo "Cleaning stale tailscale state..." >> /tmp/komari.log
+# 🧱 核心：不管之前有没有残留，先强行执行一次本地断开和状态清理，确保是张白纸
+tailscale logout >> /tmp/komari.log 2>&1
+tailscale down >> /tmp/komari.log 2>&1
 
-# 拿掉末尾的 &！不要异步！不给它打架的机会，并且去掉平台可能不支持的 --ssh 参数
-# 加上 --timeout 限制，防止它无限死卡
-tailscale up --auth-key="${TAILSCALE_AUTHKEY}" --accept-routes=true --ephemeral --timeout=30s >> /tmp/komari.log 2>&1
+echo "Bringing tailscale up synchronously with re-auth flag..." >> /tmp/komari.log
+
+# 🔥 核心修正：带上 --force-reauth 标签，强行注销掉任何导致它抛出帮助信息的“残留设备锁”
+tailscale up --auth-key="${TAILSCALE_AUTHKEY}" --accept-routes=true --ephemeral --force-reauth --timeout=30s >> /tmp/komari.log 2>&1
 
 # 打印状态看看通没通
 tailscale status >> /tmp/komari.log 2>&1
