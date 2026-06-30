@@ -41,15 +41,16 @@ tailscale up --auth-key="${TAILSCALE_AUTHKEY}" --accept-routes=true --ephemeral 
 tailscale status >> /tmp/komari.log 2>&1
 
 # ==========================================
-# 4. 纯净版 Komari v2 配置文件连接逻辑
+# 4. 纯净版 Komari v2 配置文件连接逻辑（改走公网直连域名）
 # ==========================================
-RN_INNER_IP="100.91.38.95"
+# 🔥 彻底抛弃 Tailscale IP，直接写你的服务端公网域名与 gRPC 端口
+SERVER_DOMAIN="nezha.eluke.dpdns.org"
 KOMARI_PORT="25774"
 
 if [ -n "${KOMARI_TOKEN}" ]; then
     echo "Creating v2 config file..." >> /tmp/komari.log
     cat <<EOF > /tmp/komari_config.yaml
-server: "${RN_INNER_IP}:${KOMARI_PORT}"
+server: "${SERVER_DOMAIN}:${KOMARI_PORT}"
 client_secret: "${KOMARI_TOKEN}"
 tls: false
 debug: false
@@ -60,7 +61,6 @@ EOF
 else
     echo "Warning: KOMARI_TOKEN is not set." >> /tmp/komari.log
 fi
-
 # ==========================================
 # 5. 前台日志实时跟踪
 # ==========================================
