@@ -17,11 +17,8 @@ jobs:
     steps:
       - name: Install CF CLI
         run: |
-          wget -q https://packages.cloudfoundry.org/debian/cloudfoundry-cf-cli.asc -O /tmp/cloudfoundry-cf-cli.asc
-          sudo apt-key add /tmp/cloudfoundry-cf-cli.asc
-          echo "deb https://packages.cloudfoundry.org/debian stable main" | sudo tee /etc/apt/sources.list.d/cloudfoundry-cf-cli.list
-          sudo apt-get update
-          sudo apt-get install -y cf-cli
+          curl -v "https://cli.run.pivotal.io/stable?release=linux64-binary&version=7.7.0&source=github-actions" | tar -zx
+          sudo mv cf /usr/local/bin/
 
       - name: Login to CF
         run: |
