@@ -1,33 +1,27 @@
 #!/bin/bash
 
-# 1. 在后台拉起 Tailscale 核心守护进程（使用用户态网络，并开启 1055 代理端口）
+# 1. 启动 Tailscale 核心守护进程（保持你现有的用户态网络和代理配置）
 tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --outbound-http-proxy-listen=localhost:1055 &
-
-# 2. 等待 2 秒让守护进程稳固运行
 sleep 2
 
-# 3. 自动登录并加入网络，同时开启 --ssh 托管服务！
-if [ -z "$TAILSCALE_AUTHKEY" ]; then
-  echo "错误：未设置 TAILSCALE_AUTHKEY 环境变量" >&2
+# 2. 🔥 重点：加上 --ephemeral 参数登录 Tailscale
+# 这样每次 SAP 机器因为保活重启变动 IP 时，Tailscale 后台会自动擦除旧节点，不会留下僵尸主机
+tailscale up --authkey="${TAILSCALE_AUTHKEY}" --accept-routes=true --ssh=true --ephemeral &
+sleep 2
+
+# 3. 🔥 核心修改：让 Agent 直接连接 RackNerd 固定的内网 IP
+# 💡 请把下面的 100.xx.xx.xx 替换为你刚刚记录的 RackNerd 的 Tailscale 内网 IP
+RN_INNER_IP="100.xx.xx.xx"
+KOMARI_PORT="25774"
+
+if [ -n "${KOMARI_TOKEN}" ]; then
+    echo "Starting Komari Agent via Tailscale tunnel..."
+    # 顺着内网 IP 跨越隧道连接，并使用 nohup 挂在后台
+    nohup komari-agent -e "${RN_INNER_IP}:${KOMARI_PORT}" -t "${KOMARI_TOKEN}" --protocol-version 1 > /tmp/komari.log 2>&1 &
 else
-  tailscale up --authkey="$TAILSCALE_AUTHKEY" --accept-routes=true --ssh=true &
+    echo "Warning: KOMARI_TOKEN is not set."
 fi
 
-# 4. 下载并启动 Komari 监控探针（CF 容器无 init 系统，需手动后台运行）
-KOMARI_DIR=/tmp/komari
-mkdir -p "$KOMARI_DIR"
-
-if [ ! -f "$KOMARI_DIR/komari-agent" ]; then
-  curl -fsSL -o "$KOMARI_DIR/komari-agent" \
-    https://github.com/komari-monitor/komari-agent/releases/latest/download/komari-agent-linux-amd64
-  chmod +x "$KOMARI_DIR/komari-agent"
-fi
-
-if [ -z "$KOMARI_TOKEN" ] || [ -z "$KOMARI_ENDPOINT" ]; then
-  echo "错误：未设置 KOMARI_TOKEN 或 KOMARI_ENDPOINT 环境变量" >&2
-else
-  "$KOMARI_DIR/komari-agent" -e "$KOMARI_ENDPOINT" -t "$KOMARI_TOKEN" > /tmp/komari.log 2>&1 &
-fi
-
-# 5. 保持容器前台挂起
-tail -f /dev/null
+# 4. 保持容器前台运行
+echo "Container fully initialized with secure tunnel."
+tail -f /tmp/komari.log /dev/null
