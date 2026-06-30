@@ -15,15 +15,12 @@ jobs:
     timeout-minutes: 8
 
     steps:
-      - name: Login to CF
-        uses: rhysd/action-setup-cf-cli@v1
-        with:
-          version: '11.5.0'
+      - name: Setup CF CLI
+        uses: cloudfoundry/action-setup-cf-cli@v1
 
-      - name: Restart app
+      - name: Login and restart
         run: |
           cf api ${{ secrets.CF_API }}
           cf login -u ${{ secrets.CF_USERNAME }} -p ${{ secrets.CF_PASSWORD }} -o ${{ secrets.CF_ORG }} -s ${{ secrets.CF_SPACE }} -a
           cf stop ${{ secrets.CF_APP }} || true
           cf start ${{ secrets.CF_APP }}
-          cf app ${{ secrets.CF_APP }}
