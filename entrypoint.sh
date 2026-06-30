@@ -4,17 +4,24 @@
 echo "=== Container Started at $(date) ===" > /tmp/komari.log
 
 # ==========================================
-# 2. 动态下载真正的 Komari-Agent
+# 2. 彻底放弃外部下载，直接检查并确认本地 Komari 客户端
 # ==========================================
-if [ ! -f "/usr/local/bin/komari-agent" ]; then
-    echo "Fetching the correct Komari-Agent binary..." >> /tmp/komari.log
-    curl -L "https://github.com/lumenatte/sap-keepalive/releases/download/v2/komari-agent" -o /usr/local/bin/komari-agent
-    chmod +x /usr/local/bin/komari-agent
-    echo "Komari-agent deployment completed." >> /tmp/komari.log
+if [ -f "/usr/local/bin/komari-agent" ]; then
+    echo "Using pre-installed local Komari-Agent binary." >> /tmp/komari.log
+else
+    # 预防万一，如果在这个路径没找到，去常见的全局路径找一下
+    echo "Checking alternative paths..." >> /tmp/komari.log
+    if command -v komari-agent &> /dev/null; then
+        cp $(command -v komari-agent) /usr/local/bin/komari-agent
+        echo "Found komari-agent in system PATH." >> /tmp/komari.log
+    else
+        echo "ERROR: komari-agent not found in this image!" >> /tmp/komari.log
+        tail -f /dev/null
+    fi
 fi
 
 # ==========================================
-# 3. 纯净版 Komari v2 公网直连逻辑（前台守护模式）
+# 3. Komari v2 公网直连逻辑（本地进程守护模式）
 # ==========================================
 SERVER_DOMAIN="nezha.eluke.dpdns.org"
 KOMARI_PORT="25774"
@@ -29,16 +36,14 @@ debug: false
 EOF
 
     echo "Starting Komari Agent v2 via Public Domain..." >> /tmp/komari.log
-    # --- 核心修改 ---
-    # 不要用 exec。把进程推到后台，但我们要监视它。
+    
+    # 启动本地真正的 Komari 客户端
     nohup /usr/local/bin/komari-agent -c /tmp/komari_config.yaml >> /tmp/komari.log 2>&1 &
     
-    # 获取进程 ID
     AGENT_PID=$!
     echo "Agent started with PID: ${AGENT_PID}" >> /tmp/komari.log
     
-    # 🧱 创建一个前台阻塞循环，监视 Agent 进程，防止容器退出
-    # 如果 Agent 死掉，脚本也结束，触发 BTP 重启它
+    # 前台阻塞监视循环，防止 BTP 容器因为脚本退出而报 127 错误
     while kill -0 ${AGENT_PID} 2>/dev/null; do
         sleep 30
     done
@@ -46,6 +51,5 @@ EOF
     
 else
     echo "Warning: KOMARI_TOKEN is not set." >> /tmp/komari.log
-    # 如果没变量，留一个前台进程死循环防止容器退出
     exec tail -f /dev/null
 fi
