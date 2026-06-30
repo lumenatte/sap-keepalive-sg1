@@ -11,7 +11,7 @@ sleep 2
 
 # 3. 🔥 核心修改：让 Agent 直接连接 RackNerd 固定的内网 IP
 # 💡 请把下面的 100.xx.xx.xx 替换为你刚刚记录的 RackNerd 的 Tailscale 内网 IP
-RN_INNER_IP="100.xx.xx.xx"
+RN_INNER_IP="100.91.38.95"
 KOMARI_PORT="25774"
 
 if [ -n "${KOMARI_TOKEN}" ]; then
