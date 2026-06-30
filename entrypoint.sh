@@ -4,30 +4,22 @@
 echo "=== Container Started at $(date) ===" > /tmp/komari.log
 
 # ==========================================
-# 2. 下载并部署真正的 Komari-Agent
+# 2. 直接下载真正的 Komari-Agent 纯二进制文件
 # ==========================================
 if [ ! -f "/usr/local/bin/komari-agent" ]; then
     echo "Fetching the official Komari-Agent binary..." >> /tmp/komari.log
     
-    # 下载压缩包
-    curl -L "https://github.com/komari-monitor/komari-agent/releases/latest/download/komari-agent_linux_amd64.tar.gz" -o /tmp/komari.tar.gz
+    # 【修复】改用官方正确的 GitHub Release 裸文件下载链接
+    curl -L "https://github.com/komari-monitor/komari-agent/releases/latest/download/komari-agent-linux-amd64" -o /tmp/komari-agent
     
-    # 【优化】解压到临时目录
-    mkdir -p /tmp/komari_unpack
-    tar -zxvf /tmp/komari.tar.gz -C /tmp/komari_unpack
-    
-    # 【关键修复】模糊匹配解压出来的可执行文件，确保一定能移过去并重命名为 komari-agent
-    TARGET_BIN=$(find /tmp/komari_unpack -type f -name "*komari-agent*" | head -n 1)
-    if [ -n "${TARGET_BIN}" ]; then
-        mv "${TARGET_BIN}" /usr/local/bin/komari-agent
+    # 检查是否下载成功（避免下到 404 网页）
+    if [ -s "/tmp/komari-agent" ]; then
+        mv /tmp/komari-agent /usr/local/bin/komari-agent
         chmod +x /usr/local/bin/komari-agent
         echo "Official Komari-agent deployment completed." >> /tmp/komari.log
     else
-        echo "ERROR: Failed to find komari-agent binary in the archive!" >> /tmp/komari.log
+        echo "ERROR: Failed to download komari-agent from GitHub!" >> /tmp/komari.log
     fi
-    
-    # 清理垃圾
-    rm -rf /tmp/komari.tar.gz /tmp/komari_unpack
 fi
 
 # ==========================================
