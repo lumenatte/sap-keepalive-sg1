@@ -26,7 +26,7 @@ fi
 if [ -z "$KOMARI_TOKEN" ] || [ -z "$KOMARI_ENDPOINT" ]; then
   echo "错误：未设置 KOMARI_TOKEN 或 KOMARI_ENDPOINT 环境变量" >&2
 else
-  "$KOMARI_DIR/komari-agent" -e "$KOMARI_ENDPOINT" -t "$KOMARI_TOKEN" &
+  "$KOMARI_DIR/komari-agent" -e "$KOMARI_ENDPOINT" -t "$KOMARI_TOKEN" > /tmp/komari.log 2>&1 &
 fi
 
 # 5. 保持容器前台挂起
