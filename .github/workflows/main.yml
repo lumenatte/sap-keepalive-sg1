@@ -15,18 +15,15 @@ jobs:
     timeout-minutes: 8
 
     steps:
-      - name: Install CF CLI
-        run: |
-          curl -v "https://cli.run.pivotal.io/stable?release=linux64-binary&version=7.7.0&source=github-actions" | tar -zx
-          sudo mv cf /usr/local/bin/
-
       - name: Login to CF
+        uses: rhysd/action-setup-cf-cli@v1
+        with:
+          version: '11.5.0'
+
+      - name: Restart app
         run: |
           cf api ${{ secrets.CF_API }}
           cf login -u ${{ secrets.CF_USERNAME }} -p ${{ secrets.CF_PASSWORD }} -o ${{ secrets.CF_ORG }} -s ${{ secrets.CF_SPACE }} -a
-
-      - name: Force restart app
-        run: |
           cf stop ${{ secrets.CF_APP }} || true
           cf start ${{ secrets.CF_APP }}
           cf app ${{ secrets.CF_APP }}
