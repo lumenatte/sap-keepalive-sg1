@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Setup CF CLI
-        uses: cloudfoundry/action-setup-cf-cli@v1
+        uses: vapor-ware/setup-cf-cli@v1
 
       - name: Login and restart
         run: |
