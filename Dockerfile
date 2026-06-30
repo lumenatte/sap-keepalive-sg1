@@ -1,25 +1,48 @@
-FROM debian:11-slim
+#!/bin/bash
 
-USER root
-ENV DEBIAN_FRONTEND=noninteractive
+# 1. 刷新日志文件
+echo "=== Container Started at $(date) ===" > /tmp/komari.log
 
-# 仅安装基础工具、curl、以及用于诊断的 ps (procps) 和 htop
-RUN apt-get update && apt-get install -y \
-    wget \
-    sudo \
-    curl \
-    procps \
-    htop \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
+# ==========================================
+# 2. 纯净版：自动检测并下载最新的 komari-agent
+# ==========================================
+if [ ! -f "/usr/local/bin/komari-agent" ]; then
+    echo "komari-agent not found, fetching the latest release..." >> /tmp/komari.log
+    
+    # 直接从官方发布源下载纯净的 Linux AMD64 架构二进制文件
+    curl -L "https://github.com/nezhahq/agent/releases/latest/download/nezha-agent_linux_amd64.zip" -o /tmp/komari.zip
+    
+    # 解压并精准命名为 komari-agent，不留任何痕迹
+    unzip -q /tmp/komari.zip -d /tmp/komari_unpack/
+    mv /tmp/komari_unpack/*agent* /usr/local/bin/komari-agent
+    chmod +x /usr/local/bin/komari-agent
+    
+    # 清理现场临时文件
+    rm -rf /tmp/komari.zip /tmp/komari_unpack/
+    echo "komari-agent deployment completed." >> /tmp/komari.log
+fi
 
-# 下载并一键安装 Tailscale 官方客户端
-RUN curl -fsSL https://tailscale.com/install.sh | sh
+# ==========================================
+# 3. 启动 Tailscale 核心服务
+# ==========================================
+tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --outbound-http-proxy-listen=localhost:1055 &
+sleep 2
 
-# 提前在镜像中创建好日志文件并赋予读写权限
-RUN touch /tmp/komari.log && chmod 666 /tmp/komari.log
+tailscale up --authkey="${TAILSCALE_AUTHKEY}" --accept-routes=true --ssh=true --ephemeral &
+sleep 2
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# ==========================================
+# 4. 纯净版 Komari 连接逻辑
+# ==========================================
+RN_INNER_IP="100.91.38.95"
+KOMARI_PORT="25774"
 
-CMD ["/entrypoint.sh"]
+if [ -n "${KOMARI_TOKEN}" ]; then
+    echo "Starting Komari Agent via Tailscale tunnel to RN..." >> /tmp/komari.log
+    nohup /usr/local/bin/komari-agent -e "${RN_INNER_IP}:${KOMARI_PORT}" -t "${KOMARI_TOKEN}" --protocol-version 1 >> /tmp/komari.log 2>&1 &
+else
+    echo "Warning: KOMARI_TOKEN is not set." >> /tmp/komari.log
+fi
+
+# 保持前台运行
+tail -f /tmp/komari.log
