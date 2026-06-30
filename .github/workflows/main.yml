@@ -2,11 +2,11 @@ name: SAP CF APP保活
 
 on:
   schedule:
-    - cron: "*/5 0 * * *"
-    - cron: "*/10 0 * * *"
-    - cron: "*/15 0 * * *"
-    - cron: "*/20 0 * * *"
-    - cron: "*/30 * * * *"
+    - cron: '*/5 0 * * *'
+    - cron: '*/10 0 * *'
+    - cron: '*/15 0 * *'
+    - cron: '*/20 0 * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -19,16 +19,17 @@ jobs:
     timeout-minutes: 8
 
     steps:
-      - name: KeepAlive via container
-        uses: docker://ghcr.io/uncleluogithub/cf-keepalive:latest
-        env:
-          CF_USERNAME: ${{ secrets.CF_USERNAME }}
-          CF_PASSWORD: ${{ secrets.CF_PASSWORD }}
-          CF_API:      ${{ secrets.CF_API }}
-          CF_ORG:      ${{ secrets.CF_ORG }}
-          CF_SPACE:    ${{ secrets.CF_SPACE }}
-          CF_APP:      ${{ secrets.CF_APP }}
-          CF_SET_PROCESS_HC: "true"
-          # 调试时打开
-          # DEBUG: "1"
-          # CF_TRACE: "true"
+      - name: Login to CF
+        uses: cloudfoundry/cli@v0
+        with:
+          api: ${{ secrets.CF_API }}
+          username: ${{ secrets.CF_USERNAME }}
+          password: ${{ secrets.CF_PASSWORD }}
+          org: ${{ secrets.CF_ORG }}
+          space: ${{ secrets.CF_SPACE }}
+
+      - name: Force restart app
+        run: |
+          cf stop ${{ secrets.CF_APP }} || true
+          cf start ${{ secrets.CF_APP }}
+          cf app ${{ secrets.CF_APP }}
