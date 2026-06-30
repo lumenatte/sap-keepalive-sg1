@@ -17,16 +17,15 @@ if [ ! -f "/usr/local/bin/komari-agent" ]; then
 fi
 
 # ==========================================
-# 3. 启动 Tailscale 核心服务（合并运行日志到同一个文件）
+# 3. 启动 Tailscale 核心服务（修正参数为 --auth-key）
 # ==========================================
 echo "Starting tailscaled..." >> /tmp/komari.log
-# 把 tailscaled 的错误日志也抓进 /tmp/komari.log 方便排查
 tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --outbound-http-proxy-listen=localhost:1055 >> /tmp/komari.log 2>&1 &
 sleep 3
 
 echo "Bringing tailscale up..." >> /tmp/komari.log
-# 把 up 的输出也抓进去
-tailscale up --authkey="${TAILSCALE_AUTHKEY}" --accept-routes=true --ssh=true --ephemeral >> /tmp/komari.log 2>&1 &
+# 🔥 按照 image_717d3b.png 的确凿证据，修改为 --auth-key
+tailscale up --auth-key="${TAILSCALE_AUTHKEY}" --accept-routes=true --ssh=true --ephemeral >> /tmp/komari.log 2>&1 &
 sleep 5
 
 # ==========================================
