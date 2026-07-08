@@ -1,58 +1,77 @@
 #!/bin/bash
+set -u
 
-# 1. 刷新日志文件
-echo "=== Container Started at $(date) ===" > /tmp/komari.log
+LOG=/tmp/komari.log
+echo "=== Container Started at $(date) ===" > "$LOG"
 
-# ==========================================
-# 2. 直接下载真正的 Komari-Agent 纯二进制文件
-# ==========================================
-if [ ! -f "/usr/local/bin/komari-agent" ]; then
-    echo "Fetching the official Komari-Agent binary..." >> /tmp/komari.log
-    
-    # 【修复】改用官方正确的 GitHub Release 裸文件下载链接
-    curl -L "https://github.com/komari-monitor/komari-agent/releases/latest/download/komari-agent-linux-amd64" -o /tmp/komari-agent
-    
-    # 检查是否下载成功（避免下到 404 网页）
-    if [ -s "/tmp/komari-agent" ]; then
-        mv /tmp/komari-agent /usr/local/bin/komari-agent
-        chmod +x /usr/local/bin/komari-agent
-        echo "Official Komari-agent deployment completed." >> /tmp/komari.log
-    else
-        echo "ERROR: Failed to download komari-agent from GitHub!" >> /tmp/komari.log
-    fi
-fi
-
-# ==========================================
-# 3. Komari v2 公网直连逻辑（改为纯参数启动模式）
-# ==========================================
+AGENT_BIN="/usr/local/bin/komari-agent"
 SERVER_DOMAIN="nezha.eluke.dpdns.org"
 KOMARI_PORT="25774"
 
-if [ -n "${KOMARI_TOKEN}" ]; then
-    # 检查文件是否确实存在
-    if [ -f "/usr/local/bin/komari-agent" ]; then
-        echo "Starting Komari Agent v2 via Command Line Flags..." >> /tmp/komari.log
-        
-        # 【核心修改】不用 -c，改用 -e 指定服务器，-t 指定 Token 启动
-        nohup /usr/local/bin/komari-agent -e "http://${SERVER_DOMAIN}:${KOMARI_PORT}" -t "${KOMARI_TOKEN}" >> /tmp/komari.log 2>&1 &
-        
-        # 💡 注：如果服务端开了 TLS/SSL，请把上面的 http:// 改为 https://
-        
-        AGENT_PID=$!
-        echo "Agent started with PID: ${AGENT_PID}" >> /tmp/komari.log
-        
-        # 前台阻塞监视循环
-        while kill -0 ${AGENT_PID} 2>/dev/null; do
-            sleep 30
-        done
-        echo "Agent process ${AGENT_PID} exited. Entrypoint entering backup block to prevent crash..." >> /tmp/komari.log
-    else
-        echo "ERROR: /usr/local/bin/komari-agent does not exist." >> /tmp/komari.log
-    fi
-    
-    # 防崩保护
-    exec tail -f /dev/null
-else
-    echo "Warning: KOMARI_TOKEN is not set." >> /tmp/komari.log
+# ==========================================
+# 下载函数：带超时 + 重试，避免 SAP BTP 出口慢时一次失败就放弃
+# ==========================================
+download_agent() {
+    local max_retries=10
+    local attempt=1
+    while [ $attempt -le $max_retries ]; do
+        echo "[$(date)] Downloading komari-agent, attempt ${attempt}/${max_retries}..." >> "$LOG"
+        # --max-time 1800: 单次最多等30分钟，不会因为你说的"半小时下载"被误判失败
+        curl -L --connect-timeout 30 --max-time 1800 \
+             "https://github.com/komari-monitor/komari-agent/releases/latest/download/komari-agent-linux-amd64" \
+             -o /tmp/komari-agent 2>> "$LOG"
+
+        if [ -s /tmp/komari-agent ]; then
+            mv /tmp/komari-agent "$AGENT_BIN"
+            chmod +x "$AGENT_BIN"
+            echo "[$(date)] Download succeeded." >> "$LOG"
+            return 0
+        fi
+
+        echo "[$(date)] Attempt ${attempt} failed, retrying in 10s..." >> "$LOG"
+        attempt=$((attempt + 1))
+        sleep 10
+    done
+    return 1
+}
+
+if [ ! -x "$AGENT_BIN" ]; then
+    download_agent || echo "[$(date)] ERROR: all download attempts failed." >> "$LOG"
+fi
+
+if [ -z "${KOMARI_TOKEN:-}" ]; then
+    echo "Warning: KOMARI_TOKEN is not set." >> "$LOG"
     exec tail -f /dev/null
 fi
+
+# ==========================================
+# 收到 TERM 信号（容器被回收/重建）时，杀掉所有子进程再退出
+# ==========================================
+trap 'echo "[$(date)] Caught TERM, shutting down..." >> "'"$LOG"'"; kill -9 0' TERM
+
+# ==========================================
+# 守护循环：komari-agent 无论因为什么原因退出，都会自动重启
+# 这就是你要的"每次保活后都能看到 komari-agent"的效果
+# ==========================================
+run_agent_forever() {
+    while true; do
+        if [ ! -x "$AGENT_BIN" ]; then
+            echo "[$(date)] Binary missing, re-downloading..." >> "$LOG"
+            download_agent
+        fi
+
+        echo "[$(date)] Starting komari-agent..." >> "$LOG"
+        "$AGENT_BIN" -e "http://${SERVER_DOMAIN}:${KOMARI_PORT}" -t "${KOMARI_TOKEN}" >> "$LOG" 2>&1
+        # 💡 若服务端开了 TLS/SSL，把上面 http:// 改成 https://
+
+        EXIT_CODE=$?
+        echo "[$(date)] komari-agent exited (code ${EXIT_CODE}), restarting in 5s..." >> "$LOG"
+        sleep 5
+    done
+}
+
+run_agent_forever &
+AGENT_LOOP_PID=$!
+echo "Agent supervisor loop started, PID: ${AGENT_LOOP_PID}" >> "$LOG"
+
+wait ${AGENT_LOOP_PID}
