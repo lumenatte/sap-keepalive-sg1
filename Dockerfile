@@ -22,4 +22,7 @@ RUN touch /tmp/komari.log && chmod 666 /tmp/komari.log
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+COPY komari-agent-linux-amd64 /usr/local/bin/komari-agent
+RUN chmod +x /usr/local/bin/komari-agent
+
 CMD ["/entrypoint.sh"]
