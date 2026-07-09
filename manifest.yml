@@ -1,0 +1,8 @@
+applications:
+- name: SG-Azure
+  memory: 1024M
+  health-check-type: port
+  docker:
+    image: ghcr.io/lumenatte/sap-keepalive-sg1:latest
+    username: lumenatte
+    password: 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
