@@ -25,4 +25,7 @@ RUN chmod +x /entrypoint.sh
 COPY komari-agent-linux-amd64 /usr/local/bin/komari-agent
 RUN chmod +x /usr/local/bin/komari-agent
 
+COPY xray /usr/local/bin/xray
+RUN chmod +x /usr/local/bin/xray && mkdir -p /etc/xray
+
 CMD ["/entrypoint.sh"]
