@@ -24,6 +24,8 @@ jobs:
           cf --version
 
       - name: Login and restart
+        env:
+          HTTPS_PROXY: ${{ secrets.VPS_PROXY }}
         run: |
           set -e
           export CF_TRACE=true
